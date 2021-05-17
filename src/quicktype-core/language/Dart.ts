@@ -399,11 +399,11 @@ export class DartRenderer extends ConvenienceRenderer {
     }
 
     protected mapList(itemType: Sourcelike, list: Sourcelike, mapper: Sourcelike): Sourcelike {
-        return ["List<", itemType, ">.from(", list, ".map((x) => ", mapper, "))"];
+        return [list, " == null ? [] : List<", itemType, ">.from(", list, "!.map((x) => ", mapper, "))"];
     }
 
     protected mapMap(valueType: Sourcelike, map: Sourcelike, valueMapper: Sourcelike): Sourcelike {
-        return ["Map.from(", map, ").map((k, v) => MapEntry<String, ", valueType, ">(k, ", valueMapper, "))"];
+        return [map, " == null ? null : Map.from(", map, "!).map((k, v) => MapEntry<String, ", valueType, ">(k, ", valueMapper, "))"];
     }
 
     protected fromDynamicExpression(t: Type, ...dynamic: Sourcelike[]): Sourcelike {
@@ -450,7 +450,7 @@ export class DartRenderer extends ConvenienceRenderer {
             _doubleType => dynamic,
             _stringType => dynamic,
             arrayType => this.mapList("dynamic", dynamic, this.toDynamicExpression(arrayType.items, "x")),
-            _classType => [dynamic, ".", this.toJson, "()"],
+            _classType => [dynamic, "?.", this.toJson, "()"],
             mapType => this.mapMap("dynamic", dynamic, this.toDynamicExpression(mapType.values, "v")),
             enumType => [defined(this._enumValues.get(enumType)), ".reverse[", dynamic, "]"],
             unionType => {
@@ -463,17 +463,17 @@ export class DartRenderer extends ConvenienceRenderer {
             transformedStringType => {
                 switch (transformedStringType.kind) {
                     case "date-time":
-                        return [dynamic, ".toIso8601String()"];
+                        return [dynamic, "?.toIso8601String()"];
                     case "date":
                         return [
                             '"${',
                             dynamic,
-                            ".year.toString().padLeft(4, '0')",
+                            "?.year.toString().padLeft(4, '0')",
                             "}-${",
                             dynamic,
-                            ".month.toString().padLeft(2, '0')}-${",
+                            "?.month.toString().padLeft(2, '0')}-${",
                             dynamic,
-                            ".day.toString().padLeft(2, '0')}\""
+                            "?.day.toString().padLeft(2, '0')}\""
                         ];
                     default:
                         return dynamic;
@@ -516,7 +516,7 @@ export class DartRenderer extends ConvenienceRenderer {
                     this.emitLine(
                         this._options.finalProperties ? "final " : "",
                         this.dartType(p.type, true),
-                        " ",
+                        "? ",
                         name,
                         ";"
                     );
@@ -662,16 +662,14 @@ export class DartRenderer extends ConvenienceRenderer {
     protected emitEnumValues(): void {
         this.ensureBlankLine();
         this.emitMultiline(`class EnumValues<T> {
-    Map<String, T> map;
-    Map<T, String> reverseMap;
+    final Map<String, T> map;
+    Map<T, String>? reverseMap;
 
     EnumValues(this.map);
 
     Map<T, String> get reverse {
-        if (reverseMap == null) {
-            reverseMap = map.map((k, v) => new MapEntry(v, k));
-        }
-        return reverseMap;
+        reverseMap ??= map.map((k, v) => MapEntry(v, k));
+        return reverseMap!;
     }
 }`);
     }
